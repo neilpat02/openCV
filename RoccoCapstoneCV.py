@@ -340,7 +340,7 @@ def main():
     camera_processor = CameraProcessor()
     main_window = MainWindow(root, db_manager, camera_processor)
     root.mainloop()
-    main_window.cleanup()
+    main_window.cleanup_nontk()
 
 
 if __name__ == "__main__":
