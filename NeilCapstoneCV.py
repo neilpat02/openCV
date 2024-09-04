@@ -2,7 +2,7 @@ import cv2
 import time
 import numpy as np
 import sys
-from apriltag import apriltag
+import apriltag
 from pymongo import MongoClient
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QListWidget, QPushButton, QMessageBox
 from PyQt5.QtCore import Qt, pyqtSlot, QTimer

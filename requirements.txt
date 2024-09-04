@@ -1,0 +1,6 @@
+opencv-contrib-python
+apriltag
+pymongo
+tk
+
+# https://github.com/AprilRobotics/apriltag#python
