@@ -82,7 +82,11 @@ class MainWindow:
 
         self.init_components()
         self.init_ui()
-    
+
+
+    def cleanup_nontk(self):
+        self.camera.cleanup()
+     
 
 
     def init_ui(self):
@@ -336,6 +340,7 @@ def main():
     camera_processor = CameraProcessor()
     main_window = MainWindow(root, db_manager, camera_processor)
     root.mainloop()
+    main_window.cleanup()
 
 
 if __name__ == "__main__":
