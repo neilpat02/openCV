@@ -3,6 +3,7 @@ import time
 import numpy as np
 import apriltag
 from pymongo import MongoClient
+import tkinter as tk
 from tkinter import StringVar, Tk, Label, Button, messagebox
 from tkinter.font import Font
 from datetime import datetime, timedelta
@@ -56,7 +57,7 @@ class CameraProcessor:
 
  
 class MainWindow:
-    max_time = 5
+    max_time = 1
     init_time_score = 600
     score_reduction_rate = 12.5
     grace_period = timedelta(minutes=1)
@@ -79,16 +80,13 @@ class MainWindow:
 
         self.roi: cv2.typing.Rect = None
 
-
-        self.init_components()
         self.init_ui()
-
+        self.init_components()
+ 
 
     def cleanup_nontk(self):
         self.camera.cleanup()
      
-
-
     def init_ui(self):
         label_font = Font(family="Arial", size=14)
         button_font = Font(family="Arial", size=12)
@@ -108,25 +106,28 @@ class MainWindow:
         self.update_start_timer_button_text()
 
     def increment_selected_team_and_reset(self):
+        self.timer_started = False
+        self.start_time = None
+    
         if self.current_team_index < len(self.teams) - 1:
             self.current_team_index += 1
             self.selected_team_name = self.teams[self.current_team_index][0]
-            self.timer_started = False
-            self.start_time = None
-            self.exploration_score = 0
-            self.final_time_score = 600
-
+   
             self.update_start_timer_button_text()
         else:
+            self.start_timer_button.config(text=f"All teams have been processed!", state=tk.DISABLED)
+            self.selected_team_name = None
+            self.current_team_index = len(self.teams)
             messagebox.showinfo("End of Queue", "All teams have been processed.")
+     
     
     def update_start_timer_button_text(self):
         """Update the text of the start timer button to reflect the selected team name."""
 
         if self.selected_team_name:
-            self.start_timer_button.config(text=f"Start Timer for {self.selected_team_name}")
-        else:
-            messagebox.showinfo("No Team Selected", "Please select a team first!")
+            self.start_timer_button.config(text=f"Start Timer for {self.selected_team_name}", state=tk.NORMAL)
+      
+            
 
     def init_components(self):
         self.camera.init_camera_and_detector()
@@ -146,21 +147,12 @@ class MainWindow:
             for team, timestamp in self.teams:
                 print(f"{team} - {timestamp}")
 
-            self.current_team_index = 0
-            self.selected_team_name = self.teams[self.current_team_index][0]
+            self.current_team_index = -1
+            self.increment_selected_team_and_reset()
 
-    def start_processing(self):
-        if self.teams and not self.timer_started:
-            if self.first_run:
-                self.first_run = False
-
-                team_name, _ = self.teams.pop(0)
-                return
-            team_name, _ = self.teams.pop(0)
-            self.selected_team_name = team_name
-            messagebox.showinfo("Team Selected", f"Selected Team: {self.selected_team_name}")
-            self.start_team_timer()
-
+        elif self.current_team_index == len(self.teams):
+            self.current_team_index = -1
+            self.increment_selected_team_and_reset()
 
     def start_team_timer(self):
         if self.timer_started:
