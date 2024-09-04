@@ -57,7 +57,7 @@ class CameraProcessor:
 
  
 class MainWindow:
-    max_time = 1
+    max_time = 300
     init_time_score = 600
     score_reduction_rate = 12.5
     grace_period = timedelta(minutes=1)
