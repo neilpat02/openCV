@@ -208,8 +208,10 @@ class MainWindow:
                 starting_detections = detections # assign the starting detections if it's the first frame
                 last_detections = detections
                 continue
+            
             elif len(detections) > len(last_detections): # assign starting detections if we suddenly detect a new bot and perform check again.
                 starting_detections = detections
+                last_detections = detections
                 continue
 
             if len(last_detections) != len(detections):
@@ -289,7 +291,9 @@ class MainWindow:
             cv2.imshow('AprilTag Detection', frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+                cv2.destroyWindow('AprilTag Detection')
+                messagebox.showinfo("Detection skipped", "Detection skipped.")
+                return
 
         cv2.destroyWindow('AprilTag Detection')
         raise Exception("Timer stopped unexpectedly")
