@@ -1,7 +1,7 @@
 import cv2
 import time
 import numpy as np
-import apriltag
+from apriltag import apriltag
 from pymongo import MongoClient
 import tkinter as tk
 from tkinter import StringVar, Tk, Label, Button, messagebox
@@ -34,9 +34,9 @@ class CameraProcessor:
         self.detector = None
 
     def init_camera_and_detector(self):
-        self.cap = cv2.VideoCapture(0)
-        self.detector = apriltag.Detector(apriltag.DetectorOptions(families='tag36h11'))
-
+        self.cap = cv2.VideoCapture(-1)
+        #self.detector = apriltag.Detector(apriltag.DetectorOptions(families='tag36h11'))
+        self.detector = apriltag("tagStandard52h13")
     def get_frame(self):
         ret, frame = self.cap.read()
         if not ret:
@@ -45,7 +45,8 @@ class CameraProcessor:
             return None
         return frame
     
-    def detect_apriltags(self) -> tuple[cv2.typing.MatLike, list[apriltag.Detection]]:
+    def detect_apriltags(self):
+
         frame = self.get_frame()
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         detections = self.detector.detect(gray)
@@ -185,14 +186,16 @@ class MainWindow:
 
     def halt_until_detected_moves(self):
         """
-        Not the most complete code, as if the detection is spotty this may have false positives, but good enough for now.
+        Waits until the detected AprilTag moves significantly.
         """
 
-        def dist(a: apriltag.Detection, b: apriltag.Detection):
-            return a.center[0] - b.center[0] ** 2  + a.center[1] - b.center[1] ** 2
+        def dist(a, b):
+            return (a['center'][0] - b['center'][0]) ** 2 + (a['center'][1] - b['center'][1]) ** 2
 
-        starting_detections: list[apriltag.Detection] = []
-        last_detections: list[apriltag.Detection] = []
+        movement_threshold = 20  
+
+        starting_detections = []
+        last_detections = []
         while self.timer_started:
             frame, detections = self.camera.detect_apriltags()
             cv2.imshow('AprilTag Movement Detection', frame)
@@ -203,43 +206,43 @@ class MainWindow:
 
             if not detections:
                 continue
-            
+
             if not last_detections:
-                starting_detections = detections # assign the starting detections if it's the first frame
+                starting_detections = detections
                 last_detections = detections
                 continue
-            elif len(detections) > len(last_detections): # assign starting detections if we suddenly detect a new bot and perform check again.
+            elif len(detections) > len(last_detections):
                 starting_detections = detections
                 continue
 
             if len(last_detections) != len(detections):
                 last_detections = detections
-                continue # don't bother checking on an unreliable frame.
+                continue
 
             for detection in detections:
-                # find the starting detection that is closest
+                # Find the starting detection that is closest
                 start_detection = min(starting_detections, key=lambda x: dist(x, detection))
-        
-                center = detection.center
-                last_center = start_detection.center
-    
-                # find the difference in x and y coordinates
+
+                center = detection['center']
+                last_center = start_detection['center']
+
+                # Calculate the difference in x and y coordinates
                 dx = center[0] - last_center[0]
                 dy = center[1] - last_center[1]
 
-                # find size of starting apriltag
-                w0 = abs(start_detection.corners[1][0] - start_detection.corners[0][0])
-                h0 = abs(start_detection.corners[2][1] - start_detection.corners[1][1])
+                # Eucilidean distance 
+                distance_moved = (dx ** 2 + dy ** 2) ** 0.5
 
-                if abs(dx) > w0 // 2 or abs(dy) > h0 // 2:
+                if distance_moved > movement_threshold:
                     cv2.destroyWindow('AprilTag Movement Detection')
-
                     return
-                
+
             last_detections = detections
 
         cv2.destroyWindow('AprilTag Movement Detection')
         raise Exception("Timer stopped unexpectedly")
+
+
 
             
 
@@ -258,6 +261,7 @@ class MainWindow:
         self.halt_until_detected_moves()
 
         start_datetime = datetime.now()
+        last_score_reduction_time = start_datetime
         exploration_score = 0
         final_time_score = MainWindow.init_time_score
 
@@ -296,22 +300,32 @@ class MainWindow:
 
 
     def update_frame(self, frame, roi, cell_size_x, cell_size_y, visited_cells, detections):
+        # Draw the grid and visited cells
         for i in range(9):
-            cv2.line(frame, (roi[0] + i * cell_size_x, roi[1]), (roi[0] + i * cell_size_x, roi[1] + roi[3]), (68, 222, 253), 2)
-            cv2.line(frame, (roi[0], roi[1] + i * cell_size_y), (roi[0] + roi[2], roi[1] + i * cell_size_y), (68, 222, 253), 2)
+            # Vertical lines
+            cv2.line(frame, (roi[0] + i * cell_size_x, roi[1]),
+                     (roi[0] + i * cell_size_x, roi[1] + roi[3]), (68, 222, 253), 2)
+            # Horizontal lines
+            cv2.line(frame, (roi[0], roi[1] + i * cell_size_y),
+                     (roi[0] + roi[2], roi[1] + i * cell_size_y), (68, 222, 253), 2)
 
+        # Fill in visited cells
         for cell_x, cell_y in visited_cells:
             top_left_x = roi[0] + cell_x * cell_size_x
             top_left_y = roi[1] + cell_y * cell_size_y
             bottom_right_x = top_left_x + cell_size_x
             bottom_right_y = top_left_y + cell_size_y
-            cv2.rectangle(frame, (top_left_x, top_left_y), (bottom_right_x, bottom_right_y), (0, 255, 0), -1)
+            cv2.rectangle(frame, (top_left_x, top_left_y),
+                          (bottom_right_x, bottom_right_y), (0, 255, 0), -1)
 
+        # Process detections
         for detection in detections:
-            tag_id = detection.tag_id
-            center = detection.center
+            tag_id = detection['id']
+            center = detection['center']
+
             cell_x = int((center[0] - roi[0]) / cell_size_x)
             cell_y = int((center[1] - roi[1]) / cell_size_y)
+
             if 0 <= cell_x < 8 and 0 <= cell_y < 8:
                 visited_cell = (cell_x, cell_y)
                 if visited_cell not in visited_cells:
@@ -321,7 +335,8 @@ class MainWindow:
             pt1 = (int(center[0]) - 10, int(center[1]) - 10)
             pt2 = (int(center[0]) + 10, int(center[1]) + 10)
             cv2.rectangle(frame, pt1, pt2, (255, 0, 0), 2)
-            cv2.putText(frame, f"ID: {tag_id}", (pt1[0], pt1[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+            cv2.putText(frame, f"ID: {tag_id}", (pt1[0], pt1[1] - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
 
 
 
