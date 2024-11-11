@@ -213,6 +213,7 @@ class MainWindow:
                 continue
             elif len(detections) > len(last_detections):
                 starting_detections = detections
+                last_detections = detections
                 continue
 
             if len(last_detections) != len(detections):
@@ -293,7 +294,9 @@ class MainWindow:
             cv2.imshow('AprilTag Detection', frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+                cv2.destroyWindow('AprilTag Detection')
+                messagebox.showinfo("Detection skipped", "Detection skipped.")
+                return
 
         cv2.destroyWindow('AprilTag Detection')
         raise Exception("Timer stopped unexpectedly")
