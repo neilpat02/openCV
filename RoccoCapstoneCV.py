@@ -9,6 +9,8 @@ from tkinter.font import Font
 from datetime import datetime, timedelta
 
 
+DETECTION_TYPE = dict #apriltag.Detection
+
 class DatabaseManager:
     def __init__(self, uri):
         self.client = MongoClient(uri)
@@ -29,12 +31,17 @@ class DatabaseManager:
 
 
 class CameraProcessor:
-    def __init__(self):
+    def __init__(self, height=480, width=640):
         self.cap = None
         self.detector = None
+        self.height = height
+        self.width = width
 
     def init_camera_and_detector(self):
         self.cap = cv2.VideoCapture(0)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+
         self.detector = apriltag.Detector(apriltag.DetectorOptions(families='tag36h11'))
 
     def get_frame(self):
@@ -45,7 +52,7 @@ class CameraProcessor:
             return None
         return frame
     
-    def detect_apriltags(self) -> tuple[cv2.typing.MatLike, list[apriltag.Detection]]:
+    def detect_apriltags(self) -> tuple[cv2.typing.MatLike, list[DETECTION_TYPE]]:
         frame = self.get_frame()
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         detections = self.detector.detect(gray)
@@ -75,10 +82,10 @@ class MainWindow:
     
     
 
-    def __init__(self, root: Tk, database_manager: DatabaseManager, camera_processor: CameraProcessor):
+    def __init__(self, root: Tk, database_manager: DatabaseManager):
         self.root = root
         self.db = database_manager
-        self.camera = camera_processor
+        self.camera = CameraProcessor(self.window_width, self.window_height)
 
         self.root.title("Team Selection and Timer Control")
         self.root.geometry("600x400")
@@ -199,11 +206,11 @@ class MainWindow:
         Not the most complete code, as if the detection is spotty this may have false positives, but good enough for now.
         """
 
-        def dist(a: apriltag.Detection, b: apriltag.Detection):
-            return a.center[0] - b.center[0] ** 2  + a.center[1] - b.center[1] ** 2
+        def dist(a: DETECTION_TYPE, b: DETECTION_TYPE):
+            return a['center'][0] - b['center'][0] ** 2  + a['center'][1] - b['center'][1] ** 2
 
-        starting_detections: list[apriltag.Detection] = []
-        last_detections: list[apriltag.Detection] = []
+        starting_detections: list[DETECTION_TYPE] = []
+        last_detections: list[DETECTION_TYPE] = []
         
         
         cv2.namedWindow('AprilTag Movement Detection', cv2.WINDOW_NORMAL)
@@ -241,8 +248,8 @@ class MainWindow:
                 # find the starting detection that is closest
                 start_detection = min(starting_detections, key=lambda x: dist(x, detection))
         
-                center = detection.center
-                last_center = start_detection.center
+                center = detection['center']
+                last_center = start_detection['center']
     
                 # find the difference in x and y coordinates
                 dx = center[0] - last_center[0]
@@ -252,8 +259,8 @@ class MainWindow:
                 # w0 = abs(start_detection.corners[1][0] - start_detection.corners[0][0])
                 # h0 = abs(start_detection.corners[2][1] - start_detection.corners[1][1])
                 
-                w0 = abs(start_detection.center[0] - start_detection.center[0])
-                h0 = abs(start_detection.center[1] - start_detection.center[1])
+                w0 = abs(start_detection['center'][0] - start_detection['center'][0])
+                h0 = abs(start_detection['center'][1] - start_detection['center'][1])
 
         
 
@@ -351,8 +358,8 @@ class MainWindow:
             cv2.rectangle(frame, (top_left_x, top_left_y), (bottom_right_x, bottom_right_y), (0, 255, 0), -1)
 
         for detection in detections:
-            tag_id = detection.tag_id
-            center = detection.center
+            tag_id = detection['tag_id']
+            center = detection['center']
             cell_x = int((center[0] - roi[0]) / cell_size_x)
             cell_y = int((center[1] - roi[1]) / cell_size_y)
             if 0 <= cell_x < self.x_cells and 0 <= cell_y < self.y_cells:
@@ -372,8 +379,7 @@ def main():
     root = Tk()
     mongo_uri = "mongodb+srv://mazecomphero:AgdHtQsZAmsW2wQu@cluster0.oqpibir.mongodb.net/NewMazeCompetition?retryWrites=true&w=majority"
     db_manager = DatabaseManager(mongo_uri)
-    camera_processor = CameraProcessor()
-    main_window = MainWindow(root, db_manager, camera_processor)
+    main_window = MainWindow(root, db_manager)
     root.mainloop()
     main_window.cleanup_nontk()
 
