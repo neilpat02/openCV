@@ -249,13 +249,25 @@ class MainWindow:
                 dy = center[1] - last_center[1]
 
                 # find size of starting apriltag
-                w0 = abs(start_detection.corners[1][0] - start_detection.corners[0][0])
-                h0 = abs(start_detection.corners[2][1] - start_detection.corners[1][1])
+                # w0 = abs(start_detection.corners[1][0] - start_detection.corners[0][0])
+                # h0 = abs(start_detection.corners[2][1] - start_detection.corners[1][1])
+                
+                w0 = abs(start_detection.center[0] - start_detection.center[0])
+                h0 = abs(start_detection.center[1] - start_detection.center[1])
 
-                if abs(dx) > w0 // 2 or abs(dy) > h0 // 2:
+        
+
+                # Eucilidean distance 
+                distance_moved = (dx ** 2 + dy ** 2) ** 0.5
+                
+                if distance_moved > max(w0, h0) // 2:
                     cv2.destroyWindow('AprilTag Movement Detection')
-
                     return
+
+                # if abs(dx) > w0 // 2 or abs(dy) > h0 // 2:
+                #     cv2.destroyWindow('AprilTag Movement Detection')
+
+                #     return
                 
             last_detections = detections
 
