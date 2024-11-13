@@ -49,6 +49,7 @@ class CameraProcessor:
         frame = self.get_frame()
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         detections = self.detector.detect(gray)
+        
         return frame, detections
     
     def cleanup(self):
@@ -62,7 +63,17 @@ class MainWindow:
     score_reduction_rate = 12.5
     grace_period = timedelta(minutes=1)
     score_reduction_interval = timedelta(seconds=5)
-    max_cells = 64
+    
+    
+    window_width = 900
+    window_height = 600
+    
+    x_cells = 50
+    y_cells = 50
+    
+    max_cells = x_cells * y_cells
+    
+    
 
     def __init__(self, root: Tk, database_manager: DatabaseManager, camera_processor: CameraProcessor):
         self.root = root
@@ -193,8 +204,16 @@ class MainWindow:
 
         starting_detections: list[apriltag.Detection] = []
         last_detections: list[apriltag.Detection] = []
+        
+        
+        cv2.namedWindow('AprilTag Movement Detection', cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('AprilTag Movement Detection', self.window_width, self.window_height)
+        
         while self.timer_started:
             frame, detections = self.camera.detect_apriltags()
+            
+           
+            
             cv2.imshow('AprilTag Movement Detection', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 cv2.destroyWindow('AprilTag Movement Detection')
@@ -253,8 +272,8 @@ class MainWindow:
         if total_time_seconds is None:
             total_time_seconds = self.max_time
        
-        cell_size_x = roi[2] // 8
-        cell_size_y = roi[3] // 8
+        cell_size_x = roi[2] // self.x_cells
+        cell_size_y = roi[3] // self.y_cells
         visited_cells = set()
 
         self.halt_until_detected_moves()
@@ -262,6 +281,12 @@ class MainWindow:
         start_datetime = datetime.now()
         exploration_score = 0
         final_time_score = MainWindow.init_time_score
+
+
+        cv2.namedWindow('AprilTag Detection', cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('AprilTag Detection', self.window_width, self.window_height)
+        
+        last_score_reduction_time = start_datetime
 
         while self.timer_started:
  
@@ -300,9 +325,11 @@ class MainWindow:
 
 
     def update_frame(self, frame, roi, cell_size_x, cell_size_y, visited_cells, detections):
-        for i in range(9):
+        for i in range(self.x_cells + 1):
             cv2.line(frame, (roi[0] + i * cell_size_x, roi[1]), (roi[0] + i * cell_size_x, roi[1] + roi[3]), (68, 222, 253), 2)
-            cv2.line(frame, (roi[0], roi[1] + i * cell_size_y), (roi[0] + roi[2], roi[1] + i * cell_size_y), (68, 222, 253), 2)
+            
+        for y in range(self.y_cells + 1):
+            cv2.line(frame, (roi[0], roi[1] + y * cell_size_y), (roi[0] + roi[2], roi[1] + y * cell_size_y), (68, 222, 253), 2)
 
         for cell_x, cell_y in visited_cells:
             top_left_x = roi[0] + cell_x * cell_size_x
@@ -316,7 +343,7 @@ class MainWindow:
             center = detection.center
             cell_x = int((center[0] - roi[0]) / cell_size_x)
             cell_y = int((center[1] - roi[1]) / cell_size_y)
-            if 0 <= cell_x < 8 and 0 <= cell_y < 8:
+            if 0 <= cell_x < self.x_cells and 0 <= cell_y < self.y_cells:
                 visited_cell = (cell_x, cell_y)
                 if visited_cell not in visited_cells:
                     visited_cells.add(visited_cell)
