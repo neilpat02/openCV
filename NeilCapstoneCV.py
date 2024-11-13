@@ -2,7 +2,7 @@ import cv2
 import time
 import numpy as np
 import sys
-import apriltag
+from apriltag import apriltag
 from pymongo import MongoClient
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QListWidget, QPushButton, QMessageBox
 from PyQt5.QtCore import Qt, pyqtSlot, QTimer
@@ -21,7 +21,7 @@ max_cells = 64  # Maximum number of cells in an 8x8 maze
 first_run = True
 
 def init_camera_and_detector():
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(-1)
     detector = apriltag("tagStandard52h13") #- GOOD DETECTION SEEMES TO BE WORKING REALLY WELl
 
     return cap, detector

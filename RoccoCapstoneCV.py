@@ -68,8 +68,8 @@ class MainWindow:
     window_width = 900
     window_height = 600
     
-    x_cells = 50
-    y_cells = 50
+    x_cells = 16
+    y_cells = 16
     
     max_cells = x_cells * y_cells
     
